@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+		<title>Tuning Babel to your runtimes • Christophe Porteneuve @ dotJS 2016</title>
+
+		<meta name="description" content="So we all (or almost all) use Babel to transpile our ES2015+ these days…  But the native support is ever growing. How do we transpile just what we need?">
+		<meta name="author" content="Christophe Porteneuve">
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <link href='css/fonts.css' rel='stylesheet' type='text/css'>
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/animate.min.css">
+		<link rel="stylesheet" href="css/theme/sky.css" id="theme-basis">
+		<link rel="stylesheet" href="css/theme/pw15.css" id="theme">
+
+    <!-- Code syntax highlighting -->
+    <link rel="stylesheet" href="lib/css/prism.css">
+
+		<!-- If the query includes 'print-pdf', include the PDF print sheet -->
+		<script>
+    if (window.location.search.match(/print-pdf/gi)) {
+      var link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.type = 'text/css'
+      link.href = 'css/print/pdf.css'
+      document.getElementsByTagName('head')[0].appendChild(link)
+    }
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+
+<!--     <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-43650325-15', 'auto');
+      ga('require', 'linkid');
+      ga('send', 'pageview');
+    </script>
+ -->	</head>
+
+	<body id="prioFix">
+
+		<div class="reveal">
+
+			<!-- Any section element inside of this container is displayed as a slide -->
+			<div class="slides">
+				<section id="mainTitle">
+					<h1>
+            Tuning Babel
+            <span>to your runtimes</span>
+          </h1>
+					<p>
+						<small>A talk by <a href="http://tddsworld.com/">Christophe Porteneuve</a> at <a href="http://2016.dotjs.io/">dotJS 2016</a></small>
+					</p>
+				</section>
+
+				<section id="whoami">
+					<h2>whoami</h2>
+
+					<pre><code data-trim class="language-js">
+const christophe = {
+  age: 39.0848733744011,
+  family: { wife: 'Élodie', son: 'Maxence' },
+  city: 'Paris, FR',
+  company: 'Delicious Insights',
+  trainings: ['JS Total', 'Node.js', 'Git Total'],
+  upcoming: ['ES2015+', 'GitHub', 'Performance Web'],
+  webSince: 1995,
+  claimsToFame: [
+    'Prototype.js',
+    'Ruby On Rails',
+    'Prototype and Script.aculo.us',
+    'Paris Web',
+    'NodeSchool Paris'
+  ]
+}
+          </code></pre>
+				</section>
+
+        <section data-state="theme-color-silver-green">
+          <section id="es2015plus-today">
+            <h1>ES2015/ES6+</h1>
+            <h3>in 2016</h3>
+          </section>
+
+          <section id="native-support">
+            <h2>What’s the native support like?</h2>
+
+            <p>It’s pretty sweet, actually. Take ES0215:</p>
+            <ul>
+              <li>Edge 14 = 93%</li>
+              <li>Firefox 53 = 96%</li>
+              <li>Chrome 53+ / Opera 40+ = 97%</li>
+              <li>Safari 10 (incl. iOS 10) = 100%</li>
+              <li>Node 6.8+ (LTS) = 99%</li>
+            </ul>
+
+            <p>And 90% is usually plenty enough 😉</p>
+          </section>
+
+          <section id="support-cracks">
+            <h2>OK but… In my <em>real life</em>…</h2>
+
+            <p>Native ES2015 modules are still a work in progress.<br/>
+              (Just wait for a later talk today…)</p>
+            <p>But we want that syntax <strong>now</strong>!  I mean, it’s so <strong>awesome</strong>:</p>
+
+            <pre><code class="language-js" data-trim data-keep-tags="u">
+<u>import React, { PropTypes } from 'react'</u>
+
+<u>export default</u> function Gauge ({ value, max = 100 }) {
+  return &lt;LinearProgress mode='determinate' value={value} max={max} /&gt;
+}
+            </code></pre>
+
+            <p>And what about older browsers?  What about <strong>IE</strong>?  What about older Firefox, Chrome, or just Node 4.x?</p>
+          </section>
+
+          <section id="es2016-plus">
+            <h2>And what about ES2016+, btw?</h2>
+
+            <p>We just talked about ES2015, but we’re at ES2016 now, right?</p>
+            <p>And next year, what do we do with ES2017? And the year after that?</p>
+          </section>
+        </section> <!-- #es2015plus-today -->
+
+        <section data-state="theme-color-forest-yellow">
+          <section id="babel">
+            <h1><img src="images/babel-logo.svg" style="background: none" width="100%" alt="Babel !" title="Logo du projet Babel" /></h1>
+            <h3>rulez</h3>
+          </section>
+
+          <section id="babel-cherry-pick">
+            <h2>Maybe not <em>all the things</em>, tho?</h2>
+
+            <p>Starting with Babel 6, we can cherry-pick the syntaxes we want to transpile.  Everything else is left as-is (deemed native).</p>
+
+            <p>The bigger the native support gets, the smaller our transpiled share needs be.  There is a strong incentive to avoid the “bulldozer,”, transpile-everything approach we get in most tutorials, generators and starter kits.</p>
+
+            <p>We build / watch faster, and eventually run faster (as native catches with, then overcomes, transpiled code performance).</p>
+          </section>
+
+          <section id="babel-plugins">
+            <h2>Plugins</h2>
+            <h3>Syntaxes and transforms</h3>
+
+            <p>A <strong>syntax</strong> plugin lets the parser <strong>understand</strong> a syntax amidst your JS code stream.  But Babel doesn’t necessarily transpile it.</p>
+            <p>A <strong>transform</strong> plugin instructs Babel to transpile stuff towards ES5.  It automatically leverages any syntax plugin it may need.</p>
+            <p>
+              But <a href="https://babeljs.io/docs/plugins/">there are tons</a>: Babel currently offers <strong>60+ transforms</strong>, 21 of which are just about ES2015+!
+            </p>
+          </section>
+
+          <section id="babel-presets">
+            <h2>Presets</h2>
+
+            <p>So we get <strong>presets</strong>: theme-based groupings of plugins for a specific purpose.  These fan out like so…</p>
+
+            <ul>
+              <li><strong>6 official</strong> (<tt>es2015</tt>, <tt>es2016</tt>, <tt>es2017</tt>, <strong><tt>latest</tt></strong>, <strong><tt>env</tt></strong> and <tt>react</tt>),</li>
+              <li>4 experimental, focused on TC-39 stages (<tt>stage-0</tt> thru <tt>stage-3</tt>),</li>
+              <li>and <strong>750+ community-based!</strong></li>
+            </ul>
+
+            <p>Of course you can mix and match presets and plugins.</p>
+          </section>
+
+          <section id="babel-beyond-es2016">
+            <h2>Much more than ES2016</h2>
+
+            <p>As we’ve seen, Babel already handles ES2016, ES2017, and stages that will feed into later versions.  For instance:
+
+            <ul>
+              <li><a href="https://github.com/sebmarkbage/ecmascript-rest-spread">Rest/Spread Properties</a>, currently at stage 3</li>
+              <li><a href="http://tc39.github.io/proposal-decorators/">Class and Property Decorators</a>, back at stage 2 after a major setback</li>
+              <li><a href="https://github.com/tc39/proposal-bind-operator">Function Bind Syntax</a>, right now at stage 0</li>
+            </ul>
+
+            <p>And we also have (official!) plugins for third-party syntaxes (most notably JSX and Flow annotations), module conversion (e.g. ES2015 ➡️ CommonJS), minification/optimization (notably for React)…</p>
+          </section>
+
+          <section id="babel-settings">
+            <h2>So how do I tell Babel?</h2>
+
+            <p>Most people use a JSON <tt>.babelrc</tt> file</p>
+            <p>If you run all your Babel stuff through npm scripts though, you may elect to stuff your Babel config in your <tt>package.json</tt> (in a <code>"babel"</code> key).</p>
+
+            <pre><code class="language-json" data-trim>
+{
+  "presets": ["latest-minimal"],
+  "plugins": [
+    "transform-object-rest-spread", "transform-class-properties",
+    "transform-function-bind"
+  ]
+}
+            </code></pre>
+
+            <pre><code class="language-json" data-trim>
+{
+  "presets": [["env", {
+    "targets": { "browsers": "> 1%, last 2 versions" }
+  }]],
+  "plugins": [
+    "transform-object-rest-spread", "transform-class-properties",
+    "transform-function-bind"
+  ]
+}
+            </code></pre>
+          </section>
+        </section> <!-- #babel -->
+
+        <section data-state="theme-color-blue-yellow">
+          <section id="babelizing">
+            <h1>Show me specs!</h1>
+          </section>
+
+          <section id="babelize-ie9-plus">
+            <h2>Browser side (with IE9+)</h2>
+
+            <p class="breathing">You need to transpile pretty much everything. IE9 has 100% ES5 (except the strict mode), but 0% ES2015. IE10 has 3%, IE11… 11%.  So there.</p>
+
+            <pre><code class="language-js" data-trim data-keep-tags="u">
+"presets": ["es2015"]
+            </code></pre>
+
+            <p>or</p>
+
+            <pre><code class="language-js" data-trim data-keep-tags="u">
+"presets": ["latest"]
+            </code></pre>
+          </section>
+
+          <section id="babelize-evergreens">
+            <h2>Browser side (evergreens)</h2>
+
+            <p class="breathing">Pick the last 2 versions (a la Autoprefixer), trim to 1+% browser share, check out Kangax’s <a href="https://kangax.github.io/compat-table/es6/">compatibility table</a>, cross-ref everything…</p>
+
+            <p>Or just use <tt>env</tt>:</p>
+
+            <pre><code class="language-js" data-trim data-keep-tags="u">
+"presets": [
+  ["env", {
+    "targets": {
+      "safari": 10, // SF9 is only 54%…
+      "browsers": "> 1%, last 2 versions"
+    },
+    "debug": true
+  }]
+]
+            </code></pre>
+          </section>
+
+          <section id="babelize-node">
+            <h2>Node</h2>
+
+            <p>There are <a href="https://github.com/jbach/babel-preset-es2015-node4">specific</a> <a href="https://github.com/jhen0409/babel-preset-es2015-node6">presets</a>, maintained by the community.  But just go with generic feature detection:</p>
+
+            <pre><code class="language-js" data-trim data-keep-tags="u">
+"presets": ["latest-minimal"]
+            </code></pre>
+
+            <p>or</p>
+
+            <pre><code class="language-js" data-trim data-keep-tags="u">
+"presets": [
+  ["env", {
+    "targets": { "node": "current" },
+    "debug": true
+  }]
+]
+            </code></pre>
+
+            <footer>(that being said, I would upgrade to 6.x for LTS if I were you.  Just sayin’.)</footer>
+          </section>
+        </section> <!-- #babelizing -->
+
+        <section data-state="theme-color-forest-yellow">
+          <section id="typescript">
+            <h1>What about TypeScript?</h1>
+          </section>
+
+          <section id="ts-vs-es">
+            <h2>TypeScript vs. ES2015+</h2>
+
+            <p class="breathing">TS ≈ ES2016 + optional type annotations (+ JSX compat)</p>
+            <p>TS2 transpiles to ES5 by default, but can target ES2015.</p>
+            <p>Built in VS2013u2 and later + VSCode.</p>
+            <p>Not much type inference; mostly relies on annotations.</p>
+            <p>As often with IntelliSense, many external pre-compiled typedefs to avoid deep inference.  Enormous repository on <a href="http://definitelytyped.org/">DefinitelyTyped</a>.</p>
+          </section>
+
+          <section id="ts-integration">
+            <h2>Bringing TypeScript in</h2>
+
+            <p>The documentation lists <a href="https://www.typescriptlang.org/docs/handbook/integrating-with-build-tools.html">a number of “classic” integrations</a>: Browserify, Webpack, Grunt, Gulp, JSPM/Rollup, etc.</p>
+            <p>TL;DR: works pretty well.</p>
+          </section>
+
+          <section id="flow">
+            <h2>A word on Flow</h2>
+
+            <p>TS isn’t the only way to get fine-grained type information on JS code.  The <a href="https://flowtype.org/">Flow</a> project, from Facebook, is excellent.</p>
+
+            <p class="breathing">I often heard that Flow feedback messages were more useful/actionable than TS’, but haven’t really compared them personally.</p>
+
+            <p>Do note that Babel can <a href="http://babeljs.io/docs/plugins/transform-flow-comments/">go through Flow-annotated code</a>.</p>
+          </section>
+        </section> <!-- #typescript -->
+
+        <section>
+          <h1>Thanks!</h1>
+          <h3>And may JS be with you.</h3>
+          <br>
+          <p>Christophe Porteneuve</p>
+          <p><a href="https://twitter.com/porteneuve">@porteneuve</a></p>
+
+          <p class="breathing">
+            Slides are at <a href="http://bit.ly/dotjs-babel-tuning">bit.ly/dotjs-babel-tuning</a><br/>
+          </p>
+        </section>
+
+			</div>
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+    <script src="plugin/highlight/prism.js"></script>
+		<script src="js/reveal.js"></script>
+
+		<script>
+      // Full list of configuration options available here: // https://github.com/hakimel/reveal.js#configuration
+      /* global Reveal */
+      Reveal.initialize({
+        controls: true,
+        progress: true,
+        history: true,
+        center: true,
+
+        width: '95%',
+        height: '90%',
+
+        theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+        transition: Reveal.getQueryHash().transition || 'linear', // default/cube/page/concave/zoom/linear/fade/none
+
+        // Parallax scrolling
+        // parallaxBackgroundImage: 'https://s3.amazonaws.com/hakim-static/reveal-js/reveal-parallax-1.jpg',
+        // parallaxBackgroundSize: '2100px 900px',
+
+        // Optional libraries used to extend on reveal.js
+        dependencies: [
+          { src: 'lib/js/classList.js', condition: function () { return !document.body.classList } },
+          { src: 'plugin/markdown/marked.js', condition: function () { return !!document.querySelector('[data-markdown]') } },
+          { src: 'plugin/markdown/markdown.js', condition: function () { return !!document.querySelector('[data-markdown]') } },
+          { src: 'plugin/zoom-js/zoom.js', async: true, condition: function () { return !!document.body.classList } },
+          { src: 'plugin/notes/notes.js', async: true, condition: function () { return !!document.body.classList } }
+        ]
+      })
+		</script>
+
+	</body>
+</html>
